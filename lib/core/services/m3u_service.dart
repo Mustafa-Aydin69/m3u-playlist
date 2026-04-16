@@ -38,19 +38,28 @@ class M3uService {
   /// Kota hatası (Storage Limit) yaşanmaması için dosya salt bellekte tutulur, hiçbir yere kaydedilmez.
   Future<List<ChannelModel>> loadFromFile() async {
     try {
-      // Platformlardan bağımsız olarak dosyayı alalım
+      // Platformlardan bağımsız olarak dosyayı alalım (Web için withData: true zorunludur)
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['m3u', 'm3u8', 'txt'],
+        withData: true, 
       );
 
-      if (result != null && result.files.single.path != null) {
-        final file = File(result.files.single.path!);
-        final contents = await file.readAsString(encoding: utf8);
-        return _parseM3uString(contents);
-      } else {
-        return []; // Kullanıcı iptal etti
+      if (result != null) {
+        // Eğer cihaz Web ise path her zaman null döner, bu yüzden doğrudan byte (RAM) olarak okuyacağız.
+        if (result.files.single.bytes != null) {
+          final contents = utf8.decode(result.files.single.bytes!);
+          return _parseM3uString(contents);
+        } 
+        // Masaüstü/Mobil vs. de bytes null dönerse diye klasik path okumasını yedek bırakalım
+        else if (result.files.single.path != null) {
+          final file = File(result.files.single.path!);
+          final contents = await file.readAsString(encoding: utf8);
+          return _parseM3uString(contents);
+        }
       }
+      return []; // Kullanıcı iptal etti veya dosya hatalı
+
     } catch (e) {
       throw Exception('Dosya okunurken hata okutu: $e');
     }
