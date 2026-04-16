@@ -14,6 +14,9 @@ set(APPLICATION_ID "com.example.iptv_player")
 # versions of CMake.
 cmake_policy(SET CMP0063 NEW)
 
+# media_kit_libs_linux "mimalloc.o" derleme hatasını engellemek için:
+set(MIMALLOC_USE_STATIC_LIBS OFF CACHE BOOL "Disable mimalloc static build" FORCE)
+
 # Load bundled libraries from the lib/ directory relative to the binary.
 set(CMAKE_INSTALL_RPATH "$ORIGIN/lib")
 
