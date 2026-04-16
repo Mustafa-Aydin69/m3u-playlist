@@ -15,7 +15,12 @@ class _VideoPlayerViewState extends State<VideoPlayerView> {
   // Oynatıcı nesnesi
   late final player = Player();
   // Video render kontrolcüsü
-  late final controller = VideoController(player);
+  late final controller = VideoController(
+    player, 
+    configuration: const VideoControllerConfiguration(
+      enableHardwareAcceleration: false, // Ekran kartı HW çökmesini önler
+    )
+  );
 
   @override
   void initState() {

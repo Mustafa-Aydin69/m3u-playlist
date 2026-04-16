@@ -17,6 +17,11 @@ cmake_policy(SET CMP0063 NEW)
 # media_kit_libs_linux "mimalloc.o" derleme hatasını engellemek için:
 set(MIMALLOC_USE_STATIC_LIBS OFF CACHE BOOL "Disable mimalloc static build" FORCE)
 
+# Snap Flutter libresolv.so.2 eksikliği sorununu aşmak için:
+link_directories(/usr/lib/x86_64-linux-gnu /lib/x86_64-linux-gnu)
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-rpath-link,/usr/lib/x86_64-linux-gnu")
+set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-rpath-link,/usr/lib/x86_64-linux-gnu")
+
 # Load bundled libraries from the lib/ directory relative to the binary.
 set(CMAKE_INSTALL_RPATH "$ORIGIN/lib")
 
@@ -130,3 +135,4 @@ if(NOT CMAKE_BUILD_TYPE MATCHES "Debug")
   install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
     COMPONENT Runtime)
 endif()
+target_link_libraries(iptv_player PRIVATE /usr/lib/x86_64-linux-gnu/libresolv.so.2)
