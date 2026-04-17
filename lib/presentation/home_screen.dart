@@ -32,7 +32,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF1E1E2C), // Koyu arka plan
       appBar: AppBar(
-        title: const Text('Gelişmiş IPTV Oynatıcı', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Çöplük', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFF252538),
         elevation: 0,
         actions: [
@@ -144,58 +144,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
           const SizedBox(height: 12),
           
-          // Filtreler (Grup Seçimi + Arama)
-          Row(
-            children: [
-              Expanded(
-                flex: 2,
-                child: DropdownButtonHideUnderline(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1E1E2C),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: DropdownButton<String>(
-                      isExpanded: true,
-                      dropdownColor: const Color(0xFF1E1E2C),
-                      value: state.groups.contains(state.selectedGroup) ? state.selectedGroup : 'Tümü',
-                      style: const TextStyle(color: Colors.white),
-                      items: state.groups.map((String value) {
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(value, maxLines: 1, overflow: TextOverflow.ellipsis),
-                        );
-                      }).toList(),
-                      onChanged: (val) {
-                        if (val != null) {
-                          notifier.filterByGroup(val);
-                          // Grup değiştiğinde arama kutusunu da sıfırlayalım
-                          _searchController.clear();
-                        }
+          // Arama
+          TextField(
+            controller: _searchController,
+            style: const TextStyle(color: Colors.white),
+            onChanged: (val) => notifier.searchChannel(val),
+            decoration: InputDecoration(
+              hintText: 'Kanal veya Kategori Ara...',
+              hintStyle: const TextStyle(color: Colors.white38),
+              prefixIcon: const Icon(Icons.search, color: Colors.white38),
+              filled: true,
+              fillColor: const Color(0xFF1E1E2C),
+              border: const OutlineInputBorder(borderSide: BorderSide.none),
+              suffixIcon: state.searchQuery.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear, color: Colors.white38),
+                      onPressed: () {
+                        _searchController.clear();
+                        notifier.searchChannel('');
                       },
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                flex: 3,
-                child: TextField(
-                  controller: _searchController,
-                  style: const TextStyle(color: Colors.white),
-                  onChanged: (val) => notifier.searchChannel(val),
-                  decoration: const InputDecoration(
-                    hintText: 'Kanal Ara...',
-                    hintStyle: TextStyle(color: Colors.white38),
-                    prefixIcon: Icon(Icons.search, color: Colors.white38),
-                    filled: true,
-                    fillColor: Color(0xFF1E1E2C),
-                    border: OutlineInputBorder(borderSide: BorderSide.none),
-                  ),
-                ),
-              ),
-            ],
+                    )
+                  : null,
+            ),
           ),
           const SizedBox(height: 16),
 
@@ -211,50 +181,184 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 textAlign: TextAlign.center,
               ),
             )
-          else
-            // Kanal Listesi
+          else if (state.searchQuery.isNotEmpty)
+            // Arama Sonuçları
             Expanded(
-              child: ListView.builder(
-                itemCount: state.filteredChannels.length,
-                itemBuilder: (context, index) {
-                  final channel = state.filteredChannels[index];
-                  final isSelected = state.currentChannel?.url == channel.url;
-                  
-                  return Card(
-                    color: isSelected ? Colors.blueAccent.withOpacity(0.3) : const Color(0xFF1E1E2C),
-                    margin: const EdgeInsets.only(bottom: 6),
-                    elevation: 0,
-                    child: ListTile(
-                      leading: channel.logo.isNotEmpty 
-                        ? Image.network(
-                            channel.logo, 
-                            width: 40, 
-                            height: 40,
-                            errorBuilder: (_, __, ___) => const Icon(Icons.tv, color: Colors.white54, size: 30),
-                          )
-                        : const Icon(Icons.tv, color: Colors.white54, size: 30),
-                      title: Text(
-                        channel.name,
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+              child: _buildChannelListView(state, notifier),
+            )
+          else if (state.selectedGroup == null)
+            // Ana Kategori Listesi
+            Expanded(
+              child: _buildFolderList(state.groups, notifier, isSubGroup: false),
+            )
+          else if (state.selectedGroup == 'Çöplük' && state.subGroup == null)
+            // Çöplük İçindeki Kategoriler
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back, color: Colors.white),
+                        onPressed: () {
+                          notifier.selectGroup(null);
+                        },
                       ),
-                      subtitle: Text(
-                        channel.group,
-                        style: const TextStyle(color: Colors.white54, fontSize: 12),
-                        maxLines: 1,
+                      const Expanded(
+                        child: Text(
+                          '🔞 Çöplük',
+                          style: TextStyle(
+                            color: Colors.redAccent, 
+                            fontWeight: FontWeight.bold, 
+                            fontSize: 16,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                      onTap: () {
-                        // Kanala tıklandığında anında Riverpod ile bildirir, oynatıcı hızlıca açar.
-                        notifier.selectChannel(channel);
-                      },
-                    ),
-                  );
-                },
+                    ],
+                  ),
+                  const Divider(color: Colors.white24, height: 1),
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: _buildFolderList(state.trashGroups, notifier, isSubGroup: true),
+                  ),
+                ],
+              ),
+            )
+          else
+            // Seçili Kategorideki (veya alt kategorideki) Kanallar
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back, color: Colors.white),
+                        onPressed: () {
+                          if (state.selectedGroup == 'Çöplük' && state.subGroup != null) {
+                            notifier.selectSubGroup(null);
+                          } else {
+                            notifier.selectGroup(null);
+                          }
+                        },
+                      ),
+                      Expanded(
+                        child: Text(
+                          state.subGroup ?? state.selectedGroup!,
+                          style: const TextStyle(
+                            color: Colors.white, 
+                            fontWeight: FontWeight.bold, 
+                            fontSize: 16,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Divider(color: Colors.white24, height: 1),
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: _buildChannelListView(state, notifier),
+                  ),
+                ],
               ),
             ),
         ],
       ),
+    );
+  }
+
+  Widget _buildFolderList(List<String> folders, ChannelNotifier notifier, {required bool isSubGroup}) {
+    if (folders.isEmpty) {
+      return const Center(child: Text('Klasör bulunamadı', style: TextStyle(color: Colors.white54)));
+    }
+    return ListView.builder(
+      itemCount: folders.length,
+      itemBuilder: (context, index) {
+        final groupName = folders[index];
+        final isTrash = groupName == 'Çöplük';
+        return Card(
+          color: const Color(0xFF1E1E2C),
+          margin: const EdgeInsets.only(bottom: 6),
+          elevation: 0,
+          child: ListTile(
+            leading: Icon(
+              isTrash ? Icons.delete_outline : Icons.folder, 
+              color: isTrash ? Colors.redAccent : Colors.blueAccent,
+            ),
+            title: Text(
+              isTrash ? '🔞 $groupName' : groupName,
+              style: TextStyle(
+                color: isTrash ? Colors.redAccent : Colors.white, 
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            trailing: const Icon(Icons.chevron_right, color: Colors.white54),
+            onTap: () {
+              if (isSubGroup) {
+                notifier.selectSubGroup(groupName);
+              } else {
+                notifier.selectGroup(groupName);
+              }
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildChannelListView(ChannelState state, ChannelNotifier notifier) {
+    if (state.filteredChannels.isEmpty) {
+      return const Center(
+        child: Text(
+          'Kanal bulunamadı',
+          style: TextStyle(color: Colors.white54),
+        ),
+      );
+    }
+    return ListView.builder(
+      itemCount: state.filteredChannels.length,
+      itemBuilder: (context, index) {
+        final channel = state.filteredChannels[index];
+        final isSelected = state.currentChannel?.url == channel.url;
+        
+        return Card(
+          color: isSelected ? Colors.blueAccent.withOpacity(0.3) : const Color(0xFF1E1E2C),
+          margin: const EdgeInsets.only(bottom: 6),
+          elevation: 0,
+          child: ListTile(
+            leading: channel.logo.isNotEmpty 
+              ? Image.network(
+                  channel.logo, 
+                  width: 40, 
+                  height: 40,
+                  errorBuilder: (_, __, ___) => const Icon(Icons.tv, color: Colors.white54, size: 30),
+                )
+              : const Icon(Icons.tv, color: Colors.white54, size: 30),
+            title: Text(
+              channel.name,
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            subtitle: state.searchQuery.isNotEmpty
+              ? Text(
+                  channel.group,
+                  style: const TextStyle(color: Colors.white54, fontSize: 12),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                )
+              : null,
+            onTap: () {
+              notifier.selectChannel(channel);
+            },
+          ),
+        );
+      },
     );
   }
 }

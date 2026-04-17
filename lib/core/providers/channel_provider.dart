@@ -11,7 +11,10 @@ class ChannelState {
   final List<ChannelModel> filteredChannels;
   final ChannelModel? currentChannel;
   final List<String> groups;
-  final String selectedGroup;
+  final List<String> trashGroups;
+  final String? selectedGroup;
+  final String? subGroup;
+  final String searchQuery;
 
   ChannelState({
     this.isLoading = false,
@@ -19,8 +22,11 @@ class ChannelState {
     this.allChannels = const [],
     this.filteredChannels = const [],
     this.currentChannel,
-    this.groups = const ['Tümü'],
-    this.selectedGroup = 'Tümü',
+    this.groups = const [],
+    this.trashGroups = const [],
+    this.selectedGroup,
+    this.subGroup,
+    this.searchQuery = '',
   });
 
   ChannelState copyWith({
@@ -30,7 +36,12 @@ class ChannelState {
     List<ChannelModel>? filteredChannels,
     ChannelModel? currentChannel,
     List<String>? groups,
+    List<String>? trashGroups,
     String? selectedGroup,
+    String? subGroup,
+    String? searchQuery,
+    bool clearGroup = false,
+    bool clearSubGroup = false,
   }) {
     return ChannelState(
       isLoading: isLoading ?? this.isLoading,
@@ -39,7 +50,10 @@ class ChannelState {
       filteredChannels: filteredChannels ?? this.filteredChannels,
       currentChannel: currentChannel ?? this.currentChannel,
       groups: groups ?? this.groups,
-      selectedGroup: selectedGroup ?? this.selectedGroup,
+      trashGroups: trashGroups ?? this.trashGroups,
+      selectedGroup: clearGroup ? null : (selectedGroup ?? this.selectedGroup),
+      subGroup: clearSubGroup ? null : (subGroup ?? this.subGroup),
+      searchQuery: searchQuery ?? this.searchQuery,
     );
   }
 }
@@ -73,34 +87,86 @@ class ChannelNotifier extends StateNotifier<ChannelState> {
     }
   }
 
+  bool _isAdultGroup(String name) {
+    final lower = name.toLowerCase();
+    return lower.contains('+18') || 
+           lower.contains('18+') || 
+           lower.contains('adult') || 
+           lower.contains(' porn') ||
+           lower.contains('xxx');
+  }
+
   void _setupChannels(List<ChannelModel> channels) {
-    // Tüm grupları çekip set ile tekilleştiriyoruz
-    final groupSet = <String>{'Tümü'};
+    final normalGroups = <String>{};
+    final adultGroups = <String>{};
+
     for (var ch in channels) {
-      groupSet.add(ch.group);
+      if (_isAdultGroup(ch.group)) {
+        adultGroups.add(ch.group);
+      } else {
+        normalGroups.add(ch.group);
+      }
+    }
+
+    final sortedGroups = normalGroups.toList()..sort();
+    final sortedAdultGroups = adultGroups.toList()..sort();
+    
+    if (sortedAdultGroups.isNotEmpty) {
+      sortedGroups.add('Çöplük');
     }
 
     state = state.copyWith(
       isLoading: false,
       allChannels: channels,
-      filteredChannels: channels,
-      groups: groupSet.toList()..sort(), // Alfabetik sırala
-      selectedGroup: 'Tümü',
+      filteredChannels: [],
+      groups: sortedGroups,
+      trashGroups: sortedAdultGroups,
+      clearGroup: true,
+      clearSubGroup: true,
+      searchQuery: '',
       error: '',
     );
   }
 
-  void filterByGroup(String group) {
-    if (group == 'Tümü') {
+  void selectGroup(String? group) {
+    if (group == null) {
+      state = state.copyWith(
+        clearGroup: true, 
+        clearSubGroup: true,
+        filteredChannels: [],
+        searchQuery: '',
+      );
+    } else if (group == 'Çöplük') {
       state = state.copyWith(
         selectedGroup: group,
-        filteredChannels: state.allChannels,
+        clearSubGroup: true,
+        filteredChannels: [],
+        searchQuery: '',
       );
     } else {
       final filtered = state.allChannels.where((ch) => ch.group == group).toList();
       state = state.copyWith(
         selectedGroup: group,
+        clearSubGroup: true,
         filteredChannels: filtered,
+        searchQuery: '',
+      );
+    }
+  }
+
+  void selectSubGroup(String? subGroup) {
+    if (subGroup == null) {
+      state = state.copyWith(
+        clearSubGroup: true,
+        filteredChannels: [],
+        searchQuery: '',
+      );
+    } else {
+      final filtered = state.allChannels.where((ch) => ch.group == subGroup).toList();
+      state = state.copyWith(
+        subGroup: subGroup,
+        filteredChannels: filtered,
+        searchQuery: '',
       );
     }
   }
@@ -108,19 +174,30 @@ class ChannelNotifier extends StateNotifier<ChannelState> {
   void searchChannel(String query) {
     final lowerQuery = query.toLowerCase();
     
-    // Aramayı hem seçili grup içinde hem de genel yapabiliriz. Şu an grup içinden yapıyoruz.
+    // Aramayı hem seçili grup içinde hem de genel yapabiliriz.
     List<ChannelModel> baseList;
-    if (state.selectedGroup == 'Tümü') {
+    if (state.selectedGroup == null) {
       baseList = state.allChannels;
+    } else if (state.selectedGroup == 'Çöplük') {
+      if (state.subGroup == null) {
+        // Çöplükte arama yapılıyorsa sadece o klasördekilerde ara
+        baseList = state.allChannels.where((ch) => _isAdultGroup(ch.group)).toList();
+      } else {
+        baseList = state.allChannels.where((ch) => ch.group == state.subGroup).toList();
+      }
     } else {
       baseList = state.allChannels.where((ch) => ch.group == state.selectedGroup).toList();
     }
 
     if (query.isEmpty) {
-      state = state.copyWith(filteredChannels: baseList);
+      if (state.selectedGroup == null) {
+         state = state.copyWith(searchQuery: query, filteredChannels: []);
+      } else {
+         state = state.copyWith(searchQuery: query, filteredChannels: baseList);
+      }
     } else {
       final filtered = baseList.where((ch) => ch.name.toLowerCase().contains(lowerQuery)).toList();
-      state = state.copyWith(filteredChannels: filtered);
+      state = state.copyWith(searchQuery: query, filteredChannels: filtered);
     }
   }
 
