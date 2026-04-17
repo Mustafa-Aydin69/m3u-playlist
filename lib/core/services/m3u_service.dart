@@ -5,6 +5,8 @@ import '../models/channel_model.dart';
 import 'package:file_picker/file_picker.dart';
 
 class M3uService {
+  String? lastPickedFilePath;
+
   /// URL'den M3U listesini güçlü header'lar (Tarayıcı taklidi) ile çeker.
   /// Çekim sonrası ayrıştırır ve List<ChannelModel> döner. (Sadece Bu Oturum Modu)
   Future<List<ChannelModel>> fetchFromUrl(String url) async {
@@ -53,6 +55,7 @@ class M3uService {
         } 
         // Masaüstü/Mobil vs. de bytes null dönerse diye klasik path okumasını yedek bırakalım
         else if (result.files.single.path != null) {
+          lastPickedFilePath = result.files.single.path;
           final file = File(result.files.single.path!);
           final contents = await file.readAsString(encoding: utf8);
           return _parseM3uString(contents);
@@ -62,6 +65,20 @@ class M3uService {
 
     } catch (e) {
       throw Exception('Dosya okunurken hata okutu: $e');
+    }
+  }
+
+  /// Verilen doğrudan dosya yolundan (path) okuma yapar.
+  Future<List<ChannelModel>> loadFromPath(String path) async {
+    try {
+      final file = File(path);
+      if (!file.existsSync()) {
+        throw Exception('Dosya bulunamadı veya konumu değiştirildi.');
+      }
+      final contents = await file.readAsString(encoding: utf8);
+      return _parseM3uString(contents);
+    } catch (e) {
+      throw Exception('Önbellekteki dosya okunamadı: $e');
     }
   }
 

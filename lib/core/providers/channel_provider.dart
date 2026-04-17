@@ -75,6 +75,16 @@ class ChannelNotifier extends StateNotifier<ChannelState> {
     _prefs = await SharedPreferences.getInstance();
     final favs = _prefs?.getStringList('favorite_urls') ?? [];
     state = state.copyWith(favoriteUrls: favs.toSet());
+    
+    // Otomatik Yükleme Mantığı
+    final lastSourceType = _prefs?.getString('last_source_type');
+    final lastSourceValue = _prefs?.getString('last_source_value');
+    
+    if (lastSourceType == 'url' && lastSourceValue != null && lastSourceValue.isNotEmpty) {
+      loadFromUrl(lastSourceValue);
+    } else if (lastSourceType == 'file' && lastSourceValue != null && lastSourceValue.isNotEmpty) {
+      loadFromPath(lastSourceValue);
+    }
   }
 
   Future<void> toggleFavorite(ChannelModel channel) async {
@@ -114,6 +124,8 @@ class ChannelNotifier extends StateNotifier<ChannelState> {
     try {
       final channels = await _service.fetchFromUrl(url);
       _setupChannels(channels);
+      await _prefs?.setString('last_source_type', 'url');
+      await _prefs?.setString('last_source_value', url);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
     }
@@ -128,6 +140,23 @@ class ChannelNotifier extends StateNotifier<ChannelState> {
          return;
       }
       _setupChannels(channels);
+      
+      if (_service.lastPickedFilePath != null) {
+        await _prefs?.setString('last_source_type', 'file');
+        await _prefs?.setString('last_source_value', _service.lastPickedFilePath!);
+      }
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  Future<void> loadFromPath(String path) async {
+    state = state.copyWith(isLoading: true, error: '');
+    try {
+      final channels = await _service.loadFromPath(path);
+      _setupChannels(channels);
+      await _prefs?.setString('last_source_type', 'file');
+      await _prefs?.setString('last_source_value', path);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
     }
