@@ -35,16 +35,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         title: const Text('Çöplük', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFF252538),
         elevation: 0,
-        actions: [
-          IconButton(
-            tooltip: 'Sadece Bu Oturum: M3U Dosyası Seç (Kotayı Aşmaz)',
-            icon: const Icon(Icons.file_upload),
-            onPressed: () {
-              notifier.loadFromFile();
-            },
-          ),
-          const SizedBox(width: 10),
-        ],
       ),
       body: isDesktop
           ? _buildDesktopLayout(state, notifier)
@@ -128,17 +118,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
               const SizedBox(width: 8),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blueAccent,
-                  padding: const EdgeInsets.all(16),
+              Tooltip(
+                message: 'İnternetten İndir',
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blueAccent,
+                    padding: const EdgeInsets.all(16),
+                  ),
+                  onPressed: () {
+                    if (_urlController.text.isNotEmpty) {
+                      notifier.loadFromUrl(_urlController.text);
+                    }
+                  },
+                  child: const Icon(Icons.download, color: Colors.white),
                 ),
-                onPressed: () {
-                  if (_urlController.text.isNotEmpty) {
-                    notifier.loadFromUrl(_urlController.text);
-                  }
-                },
-                child: const Icon(Icons.download, color: Colors.white),
+              ),
+              const SizedBox(width: 8),
+              Tooltip(
+                message: 'Lokal Dosyadan Seç (.m3u)',
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    padding: const EdgeInsets.all(16),
+                  ),
+                  onPressed: () {
+                    notifier.loadFromFile();
+                  },
+                  child: const Icon(Icons.folder_open, color: Colors.white),
+                ),
               )
             ],
           ),

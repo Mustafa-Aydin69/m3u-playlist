@@ -48,6 +48,10 @@ class M3uService {
       );
 
       if (result != null) {
+        if (result.files.single.path != null) {
+          lastPickedFilePath = result.files.single.path;
+        }
+
         // Eğer cihaz Web ise path her zaman null döner, bu yüzden doğrudan byte (RAM) olarak okuyacağız.
         if (result.files.single.bytes != null) {
           final contents = utf8.decode(result.files.single.bytes!);
@@ -55,7 +59,6 @@ class M3uService {
         } 
         // Masaüstü/Mobil vs. de bytes null dönerse diye klasik path okumasını yedek bırakalım
         else if (result.files.single.path != null) {
-          lastPickedFilePath = result.files.single.path;
           final file = File(result.files.single.path!);
           final contents = await file.readAsString(encoding: utf8);
           return _parseM3uString(contents);
