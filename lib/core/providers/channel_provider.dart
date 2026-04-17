@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/channel_model.dart';
 import '../services/m3u_service.dart';
 
@@ -15,6 +16,7 @@ class ChannelState {
   final String? selectedGroup;
   final String? subGroup;
   final String searchQuery;
+  final Set<String> favoriteUrls;
 
   ChannelState({
     this.isLoading = false,
@@ -27,6 +29,7 @@ class ChannelState {
     this.selectedGroup,
     this.subGroup,
     this.searchQuery = '',
+    this.favoriteUrls = const {},
   });
 
   ChannelState copyWith({
@@ -40,6 +43,7 @@ class ChannelState {
     String? selectedGroup,
     String? subGroup,
     String? searchQuery,
+    Set<String>? favoriteUrls,
     bool clearGroup = false,
     bool clearSubGroup = false,
   }) {
@@ -54,14 +58,56 @@ class ChannelState {
       selectedGroup: clearGroup ? null : (selectedGroup ?? this.selectedGroup),
       subGroup: clearSubGroup ? null : (subGroup ?? this.subGroup),
       searchQuery: searchQuery ?? this.searchQuery,
+      favoriteUrls: favoriteUrls ?? this.favoriteUrls,
     );
   }
 }
 
 class ChannelNotifier extends StateNotifier<ChannelState> {
   final M3uService _service;
+  SharedPreferences? _prefs;
 
-  ChannelNotifier(this._service) : super(ChannelState());
+  ChannelNotifier(this._service) : super(ChannelState()) {
+    _initPrefs();
+  }
+
+  Future<void> _initPrefs() async {
+    _prefs = await SharedPreferences.getInstance();
+    final favs = _prefs?.getStringList('favorite_urls') ?? [];
+    state = state.copyWith(favoriteUrls: favs.toSet());
+  }
+
+  Future<void> toggleFavorite(ChannelModel channel) async {
+    final newFavs = Set<String>.from(state.favoriteUrls);
+    if (newFavs.contains(channel.url)) {
+      newFavs.remove(channel.url);
+    } else {
+      newFavs.add(channel.url);
+    }
+    await _prefs?.setStringList('favorite_urls', newFavs.toList());
+    
+    List<ChannelModel> newFiltered = state.filteredChannels;
+    if (state.selectedGroup == '⭐ Favorilerim') {
+        newFiltered = state.allChannels.where((ch) => newFavs.contains(ch.url)).toList();
+    }
+    
+    // Update groups if Favorilerim should appear or disappear
+    List<String> newGroups = List.from(state.groups);
+    final hasFavorites = state.allChannels.any((ch) => newFavs.contains(ch.url));
+    
+    if (hasFavorites && !newGroups.contains('⭐ Favorilerim')) {
+        newGroups.insert(0, '⭐ Favorilerim');
+    } else if (!hasFavorites && newGroups.contains('⭐ Favorilerim')) {
+        newGroups.remove('⭐ Favorilerim');
+        if (state.selectedGroup == '⭐ Favorilerim') {
+            // Favoriler boşaldıysa ana menüye dön
+            state = state.copyWith(favoriteUrls: newFavs, groups: newGroups, clearGroup: true, clearSubGroup: true, filteredChannels: []);
+            return;
+        }
+    }
+
+    state = state.copyWith(favoriteUrls: newFavs, filteredChannels: newFiltered, groups: newGroups);
+  }
 
   Future<void> loadFromUrl(String url) async {
     state = state.copyWith(isLoading: true, error: '');
@@ -111,6 +157,11 @@ class ChannelNotifier extends StateNotifier<ChannelState> {
     final sortedGroups = normalGroups.toList()..sort();
     final sortedAdultGroups = adultGroups.toList()..sort();
     
+    final hasFavorites = channels.any((ch) => state.favoriteUrls.contains(ch.url));
+    if (hasFavorites) {
+      sortedGroups.insert(0, '⭐ Favorilerim');
+    }
+
     if (sortedAdultGroups.isNotEmpty) {
       sortedGroups.add('Çöplük');
     }
@@ -141,6 +192,14 @@ class ChannelNotifier extends StateNotifier<ChannelState> {
         selectedGroup: group,
         clearSubGroup: true,
         filteredChannels: [],
+        searchQuery: '',
+      );
+    } else if (group == '⭐ Favorilerim') {
+      final filtered = state.allChannels.where((ch) => state.favoriteUrls.contains(ch.url)).toList();
+      state = state.copyWith(
+        selectedGroup: group,
+        clearSubGroup: true,
+        filteredChannels: filtered,
         searchQuery: '',
       );
     } else {
@@ -185,6 +244,8 @@ class ChannelNotifier extends StateNotifier<ChannelState> {
       } else {
         baseList = state.allChannels.where((ch) => ch.group == state.subGroup).toList();
       }
+    } else if (state.selectedGroup == '⭐ Favorilerim') {
+      baseList = state.allChannels.where((ch) => state.favoriteUrls.contains(ch.url)).toList();
     } else {
       baseList = state.allChannels.where((ch) => ch.group == state.selectedGroup).toList();
     }

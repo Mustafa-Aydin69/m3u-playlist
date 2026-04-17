@@ -353,6 +353,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   overflow: TextOverflow.ellipsis,
                 )
               : null,
+            trailing: IconButton(
+              icon: Icon(
+                state.favoriteUrls.contains(channel.url) ? Icons.star : Icons.star_border,
+                color: state.favoriteUrls.contains(channel.url) ? Colors.amber : Colors.white38,
+              ),
+              onPressed: () {
+                notifier.toggleFavorite(channel);
+              },
+            ),
             onTap: () {
               notifier.selectChannel(channel);
             },
